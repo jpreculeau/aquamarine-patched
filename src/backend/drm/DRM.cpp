@@ -878,6 +878,15 @@ bool Aquamarine::CDRMBackend::initMgpu() {
     rendererState.renderer = CDRMRenderer::attempt(backend.lock(), gpu->renderNodeFd >= 0 ? gpu->renderNodeFd : gpu->fd);
 
     if (!rendererState.renderer) {
+        if (!primary) {
+            // We are the primary GPU: this renderer is only used to blit for secondary GPUs, scanout works without it.
+            // Remember the failure instead of retrying (and logging) on every commit (upstream issue 425).
+            backend->log(AQ_LOG_WARNING, "drm: initMgpu: no renderer on the primary GPU, continuing without one");
+            rendererRequired = false;
+            rendererState.allocator.reset();
+            return true;
+        }
+
         backend->log(AQ_LOG_ERROR, "drm: initMgpu: no renderer");
         return false;
     }
